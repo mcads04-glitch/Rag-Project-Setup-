@@ -43,26 +43,16 @@ class ConversationHistory:
               Assistant: Python is a high-level programming language...
               User: Can you give an example?
         """
-        # TODO (Week 11): Build the formatted conversation string.
-        #
-        # --- The RAG concept ---
-        # We're about to paste this text directly into the Gemini prompt.
-        # The format matters: the LLM needs to clearly see who said what.
-        # We label each message "User:" or "Assistant:" so the model
-        # understands the back-and-forth structure of the conversation.
-        #
-        # Steps:
-        #   1. Get the most recent messages:
-        #      recent = self.get_recent(MAX_HISTORY_TURNS * 2)
-        #      (Each "turn" = 1 user message + 1 assistant reply = 2 items)
-        #
-        #   2. For each message in recent, build a line:
-        #      - If message["role"] == "user"      → "User: {message['content']}"
-        #      - If message["role"] == "assistant"  → "Assistant: {message['content']}"
-        #
-        #   3. Join all lines with "\n" and return the result.
-        #
-        return ""  # replace this with your implementation
+        recent = self.get_recent(MAX_HISTORY_TURNS * 2)
+
+        lines = []
+        for message in recent:
+            if message["role"] == "user":
+                lines.append(f"User: {message['content']}")
+            elif message["role"] == "assistant":
+                lines.append(f"Assistant: {message['content']}")
+
+        return "\n".join(lines)
 
     def get_recent(self, n):
         """Return the last n messages."""
