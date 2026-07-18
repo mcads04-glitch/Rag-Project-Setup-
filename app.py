@@ -183,6 +183,8 @@ if query:
                     st.markdown("**Grounding:** :orange[Partial ⚠]")
                 elif verdict == "HALLUCINATED":
                     st.markdown("**Grounding:** :red[May hallucinate ✗]")
+                else:
+                    st.markdown(f"**Grounding:** :gray[{verdict or 'UNKNOWN'}]")
 
             warning = grounding.get("warning", "")
             if warning:

@@ -130,42 +130,54 @@ def run_rag(query, conversation_history=None):
       - "error":      Error message (empty string if no error)
     """
 
-    # ── Week 12 TODO ──────────────────────────────────────────────────────────
-    # Add input security before any processing happens.
-    #
-    # The RAG concept: always validate at the system boundary — the moment
-    # user input enters the app, before it touches the LLM or vector store.
-    # Prompt injection can hijack LLM behavior, so we stop bad input here.
-    #
-    # Steps:
-    #   1. Call validate_input(query) → returns (is_valid, error_message)
-    #   2. If not is_valid, return this dict immediately:
-    #        {"answer": error_message, "sources": [], "distances": [],
-    #         "confidence": 0.0, "grounding": {}, "error": error_message}
-    #   3. Clean up the query: query = sanitize_input(query)
-    # ─────────────────────────────────────────────────────────────────────────
+    # ── Week 12: Input security ───────────────────────────────────────────────
     is_valid, error_message = validate_input(query)
     if not is_valid:
-      return {
-        "answer": error_message,
-        "sources": [],
-        "distances": [],
-        "confidence": 0.0,
-        "grounding": {},
-         "error": error_message
+        return {
+            "answer": error_message,
+            "sources": [],
+            "distances": [],
+            "confidence": 0.0,
+            "grounding": {},
+            "error": error_message
         }
 
     query = sanitize_input(query)
     documents, distances = retrieve_context(query)
     answer = generate_answer(query, documents, conversation_history)
+    documents, distances = filter_by_threshold(documents, distances, SIMILARITY_THRESHOLD)
+
+    if not has_relevant_results(documents):
+        return {
+            "answer": get_fallback_response(),
+            "sources": [],
+            "distances": [],
+            "confidence": 0.0,
+            "grounding": {"verdict": "N/A", "is_grounded": True, "warning": ""},
+            "error": ""
+        }
+
+    # ── Week 14: Graceful error handling around generation ────────────────────
+    try:
+        answer = generate_answer(query, documents, conversation_history)
+    except Exception as e:
+        return {
+            "answer": handle_api_error(e),
+            "sources": [],
+            "distances": [],
+            "confidence": 0.0,
+            "grounding": {},
+            "error": str(e)
+        }
+
     confidence = calculate_confidence(distances)
     grounding = check_hallucination(answer, documents)
 
     if conversation_history is not None:
-          conversation_history.add_message("user", query)
-          conversation_history.add_message("assistant", answer)
+        conversation_history.add_message("user", query)
+        conversation_history.add_message("assistant", answer)
 
-          return {
+    return {
         "answer": answer,
         "sources": documents,
         "distances": distances,
@@ -231,21 +243,6 @@ def get_feature_status():
     # ─────────────────────────────────────────────────────────────────────────
 
     # ── Week 10: Core Retrieval — already complete ───────────────────────────
-    # ── Week 14 TODO ──────────────────────────────────────────────────────────
-    # Filter out documents that aren't similar enough to be useful.
-    #
-    # The RAG concept: ChromaDB always returns results even when nothing is
-    # relevant. Without filtering, we might generate an answer from completely
-    # unrelated documents. The threshold cuts off low-quality matches.
-    #
-    # Steps:
-    #   1. Filter: documents, distances = filter_by_threshold(documents, distances, SIMILARITY_THRESHOLD)
-    #   2. If not has_relevant_results(documents), return a fallback dict:
-    #        {"answer": get_fallback_response(), "sources": [], "distances": [],
-    #         "confidence": 0.0,
-    #         "grounding": {"verdict": "N/A", "is_grounded": True, "warning": ""},
-    #         "error": ""}
-    # ─────────────────────────────────────────────────────────────────────────
 
     # ── Week 10: Core Generation — already complete ──────────────────────────
     # Week 14: wrap this in try/except and call handle_api_error(e) on failure
