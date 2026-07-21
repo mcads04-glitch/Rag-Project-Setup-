@@ -11,8 +11,6 @@
 # This is one of the most common attacks against LLM-based applications.
 # The fix is to check user input BEFORE it ever reaches the LLM.
 
-import re
-
 # TODO (Week 12): Fill in the BLOCKED_PATTERNS list.
 #
 # --- The RAG/security concept ---

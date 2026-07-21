@@ -40,28 +40,40 @@ def rewrite_query(original_query, conversation_context=""):
     Returns:
         A rewritten query string, or the original if rewriting fails.
     """
-    # TODO (Week 15): Implement query rewriting using Gemini.
-    #
-    # --- The RAG concept ---
-    # Embeddings capture meaning, but they're sensitive to phrasing.
-    # A user might type casually ("how does python deal with dbs?") while
-    # documents are written formally ("Python database connectivity and ORMs").
-    # These two phrasings may not be close in embedding space even though
-    # they mean the same thing. Query rewriting bridges that gap.
-    #
-    # Also important: if the user asks a follow-up like "What else can it do?",
-    # the conversation_context lets you resolve "it" to the right topic.
-    #
-    # Steps:
-    #   1. If conversation_context is not empty, include it in the prompt
-    #   2. Build a prompt asking Gemini to rewrite the question to be more
-    #      specific and technical, suitable for semantic search
-    #   3. Call _client.models.generate_content() with temperature=0.1
-    #      (low temperature = focused rewriting, not creative)
-    #   4. Return response.text.strip() if it's not empty and under 500 chars
-    #   5. Wrap in try/except — if anything fails, return original_query unchanged
-    #
-    return original_query  # placeholder — query passes through unchanged
+    try:
+        if conversation_context:
+            context_section = f"\nConversation so far:\n{conversation_context}\n"
+        else:
+            context_section = ""
+
+        prompt = f"""You rewrite user questions to make them clearer and more specific
+for semantic search against a technical knowledge base.
+
+{context_section}
+Original question: {original_query}
+
+Rewrite this question to be:
+- Specific and technical (not vague or casual)
+- Self-contained (resolve pronouns like "it" or "that" using the conversation above, if given)
+- A single clear question, not a list
+
+Respond with ONLY the rewritten question, nothing else."""
+
+        response = _client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0.1),
+        )
+
+        rewritten = response.text.strip()
+
+        if rewritten and len(rewritten) < 500:
+            return rewritten
+
+        return original_query
+
+    except Exception:
+        return original_query
 
 
 def decompose_query(query):
@@ -75,24 +87,35 @@ def decompose_query(query):
         A list of sub-question strings (up to 3), or [query] if it's
         already simple or if decomposition fails.
     """
-    # TODO (Week 15): Implement query decomposition using Gemini.
-    #
-    # --- The RAG concept ---
-    # Some questions have multiple parts, each requiring different documents.
-    # "How does Python connect to databases, and what's the difference between
-    # SQL and NoSQL?" needs documents about Python AND about SQL/NoSQL separately.
-    # By splitting the question and searching for each part independently,
-    # we get much better document coverage for complex questions.
-    #
-    # Steps:
-    #   1. Build a prompt asking Gemini: if this question covers multiple topics,
-    #      split it into 2-3 simpler sub-questions; otherwise return it as-is
-    #   2. Call _client.models.generate_content() with temperature=0.1
-    #   3. Split response.text on newlines, strip each line, drop empty/short lines
-    #   4. Return at most 3 sub-questions
-    #   5. Wrap in try/except — if anything fails, return [query]
-    #
-    return [query]  # placeholder — query is not decomposed
+    try:
+        prompt = f"""You analyze user questions for a technical Q&A system.
+
+Question: {query}
+
+If this question covers multiple distinct topics, split it into 2-3 simpler
+sub-questions, one per line, with no numbering or bullets.
+
+If this question is already simple and covers a single topic, respond with
+just the original question unchanged, on one line.
+
+Respond with ONLY the question(s), one per line, nothing else."""
+
+        response = _client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0.1),
+        )
+
+        lines = response.text.strip().split("\n")
+        sub_questions = [line.strip() for line in lines if len(line.strip()) > 5]
+
+        if not sub_questions:
+            return [query]
+
+        return sub_questions[:3]
+
+    except Exception:
+        return [query]
 
 
 def multi_hop_retrieve(query, n_per_hop=2):

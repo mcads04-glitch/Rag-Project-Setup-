@@ -15,6 +15,7 @@
 import streamlit as st
 from rag_pipeline import initialize_vector_store, run_rag, get_feature_status
 from conversation import ConversationHistory
+from config import GEMINI_MODEL, EMBEDDING_MODEL
 
 # --- Page Configuration ---
 # This must be the FIRST Streamlit command called in the script.
@@ -54,8 +55,8 @@ with st.sidebar:
 
     st.subheader("System Info")
     st.write(f"Knowledge base: **{st.session_state.doc_count} documents**")
-    st.write("Embedding model: **all-MiniLM-L6-v2**")
-    st.write("LLM: **gemini-2.5-flash**")
+    st.write(f"Embedding model: **{EMBEDDING_MODEL}**")
+    st.write(f"LLM: **{GEMINI_MODEL}**")
 
     st.divider()
 

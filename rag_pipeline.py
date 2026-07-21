@@ -143,8 +143,18 @@ def run_rag(query, conversation_history=None):
         }
 
     query = sanitize_input(query)
-    documents, distances = retrieve_context(query)
-    answer = generate_answer(query, documents, conversation_history)
+    original_query = query
+
+    # ── Week 15: Rewrite the query for better retrieval ───────────────────────
+    # A more specific, well-formed query produces a better embedding, which
+    # improves document retrieval. Conversation context lets us resolve vague
+    # follow-ups like "What else can it do?" into a self-contained question.
+    history_context = ""
+    if conversation_history and len(conversation_history) > 0:
+        history_context = conversation_history.get_formatted_history()
+    search_query = rewrite_query(query, history_context)
+
+    documents, distances = retrieve_context(search_query)
     documents, distances = filter_by_threshold(documents, distances, SIMILARITY_THRESHOLD)
 
     if not has_relevant_results(documents):
@@ -159,7 +169,7 @@ def run_rag(query, conversation_history=None):
 
     # ── Week 14: Graceful error handling around generation ────────────────────
     try:
-        answer = generate_answer(query, documents, conversation_history)
+        answer = generate_answer(search_query, documents, conversation_history)
     except Exception as e:
         return {
             "answer": handle_api_error(e),
@@ -174,7 +184,7 @@ def run_rag(query, conversation_history=None):
     grounding = check_hallucination(answer, documents)
 
     if conversation_history is not None:
-        conversation_history.add_message("user", query)
+        conversation_history.add_message("user", original_query)
         conversation_history.add_message("assistant", answer)
 
     return {
@@ -225,53 +235,3 @@ def get_feature_status():
         "Week 14 — Filtering & fallbacks": week14,
         "Week 15 — Query rewriting": week15,
     }
-
-
-    # ── Week 15 TODO ──────────────────────────────────────────────────────────
-    # Rewrite the query before retrieval to improve embedding quality.
-    #
-    # The RAG concept: the phrasing of the query directly affects what
-    # embedding gets produced, which affects what documents get retrieved.
-    # A more specific, well-formed query produces a better embedding.
-    #
-    # Steps:
-    #   1. Get conversation context (if any):
-    #        history_context = ""
-    #        if conversation_history and len(conversation_history) > 0:
-    #            history_context = conversation_history.get_formatted_history()
-    #   2. Rewrite: query = rewrite_query(query, history_context)
-    # ─────────────────────────────────────────────────────────────────────────
-
-    # ── Week 10: Core Retrieval — already complete ───────────────────────────
-
-    # ── Week 10: Core Generation — already complete ──────────────────────────
-    # Week 14: wrap this in try/except and call handle_api_error(e) on failure
-    # ── Week 13 TODO ──────────────────────────────────────────────────────────
-    # Monitor the response quality after generation.
-    #
-    # The RAG concept: even with context, LLMs can hallucinate. We use
-    # "LLM-as-judge" — asking Gemini to evaluate its own output against the
-    # source documents. We also convert vector distances into a confidence
-    # score so users know how well the retrieved docs matched the query.
-    #
-    # Steps:
-    #   1. confidence = calculate_confidence(distances)
-    #   2. grounding  = check_hallucination(answer, documents)
-    #   Then replace the placeholder values below with these variables.
-    # ─────────────────────────────────────────────────────────────────────────
-     # Week 13: replace with calculate_confidence(distances)
-     # Week 13: replace with check_hallucination(answer, documents)
-
-    # ── Week 11 TODO ──────────────────────────────────────────────────────────
-    # Save this exchange to conversation history so follow-up questions work.
-    #
-    # The RAG concept: we store both sides of the exchange (user question AND
-    # assistant answer) so get_formatted_history() can include both in the
-    # next prompt. Without this step, history is never actually saved.
-    #
-    # Steps (only if conversation_history is not None):
-    #   conversation_history.add_message("user", query)
-    #   conversation_history.add_message("assistant", answer)
-    # ─────────────────────────────────────────────────────────────────────────
-
-    

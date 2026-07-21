@@ -115,8 +115,8 @@ Do not provide an explanation.
     except Exception:
         return {
             "verdict": "UNKNOWN",
-            "is_grounded": True,
-            "warning": "",
+            "is_grounded": False,
+            "warning": "Could not verify grounding for this answer.",
         }
 
 
